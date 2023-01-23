@@ -92,6 +92,32 @@ def detect(model):
         abort(500, f"Failed to handle request for model {model}")
 
 
+@app.route(f"{MODEL_URL}/<model>/train", methods=["GET"])
+def get_train_status(model):
+    try:
+        result = {
+            ATTR_STATUS: api.get_training_status(model)
+        }
+
+        return result
+
+    except APIException as api_ex:
+        error_message = api_ex.error
+        if api_ex.inner_exception is not None:
+            error_message = f"{error_message}, Error: {api_ex.inner_exception}, Line: {api_ex.line}"
+
+        _LOGGER.error(error_message)
+
+        abort(api_ex.status, api_ex.error)
+
+    except Exception as ex:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+
+        _LOGGER.error(f"Failed to get training status for model {model}, error: {ex}, Line: {exc_tb.tb_lineno}")
+
+        abort(500, f"Failed to handle request for model {model}")
+
+
 @app.route(f"{MODEL_URL}/<model>/train", methods=["POST"])
 def train(model):
     try:
