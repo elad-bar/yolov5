@@ -1,8 +1,7 @@
 LABEL_LOADING = "loading"
 LABEL_LOADED = "loaded"
 
-DETECTION_URL = "/v1/detect"
-TRAIN_URL = "/v1/train"
+MODEL_URL = "/v1/model"
 
 DEFAULT_DATASETS_PATH = "/usr/src/datasets"
 DEFAULT_TEMP_PATH = "/tmp"
@@ -12,6 +11,7 @@ MODEL_DATA_PATH_PATTERN = '*.yaml'
 
 MODEL_WEIGHTS_KEY = "weights"
 MODEL_DATA_KEY = "data"
+MODEL_PRE_TRAIN_KEY = "pre-train"
 
 MEDIA_VIDEO = "video"
 MEDIA_IMAGE = "image"
@@ -42,3 +42,14 @@ ATTR_OK = "ok"
 ATTR_MEDIA = "media"
 ATTR_LABELS = "labels"
 ATTR_STATUS = "status"
+ATTR_CREATED = "created"
+
+MODEL_BASE_DIRECTORIES = [
+    "images/train/",
+    "images/val/",
+    "labels/train/",
+    "labels/val/",
+    "models/",
+    "pre-train/",
+    "result/"
+]

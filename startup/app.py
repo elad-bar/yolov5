@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 
-from flask import Flask, request, abort
+from flask import Flask, request, abort, url_for
 
 from startup.helpers.consts import *
 from startup.managers.api import API
@@ -28,12 +28,39 @@ root.addHandler(stream_handler)
 _LOGGER = logging.getLogger(__name__)
 
 
-@app.route(f"{DETECTION_URL}/list", methods=["GET"])
+@app.route(f"{MODEL_URL}/<model>", methods=["POST"])
+def create_model(model):
+    try:
+        labels_str = request.form.get("labels")
+        labels = [LABEL_LOADING, LABEL_LOADED] if not labels_str else labels_str.split(",")
+
+        result = api.create(model, labels)
+
+        return result
+
+    except APIException as api_ex:
+        error_message = api_ex.error
+        if api_ex.inner_exception is not None:
+            error_message = f"{error_message}, Error: {api_ex.inner_exception}, Line: {api_ex.line}"
+
+        _LOGGER.error(error_message)
+
+        abort(api_ex.status, api_ex.error)
+
+    except Exception as ex:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+
+        _LOGGER.error(f"Failed to process model {model}, error: {ex}, Line: {exc_tb.tb_lineno}")
+
+        abort(500, f"Failed to handle request for model {model}")
+
+
+@app.route(f"{MODEL_URL}", methods=["GET"])
 def list_models():
     return list(api.models.keys())
 
 
-@app.route(f"{DETECTION_URL}/<model>", methods=["POST"])
+@app.route(f"{MODEL_URL}/<model>/detect", methods=["POST"])
 def detect(model):
     try:
         media_file = request.files.get("image")
@@ -65,6 +92,56 @@ def detect(model):
         abort(500, f"Failed to handle request for model {model}")
 
 
+@app.route(f"{MODEL_URL}/<model>/train", methods=["POST"])
+def train(model):
+    try:
+        result = api.train(model)
+
+        return result
+
+    except APIException as api_ex:
+        error_message = api_ex.error
+        if api_ex.inner_exception is not None:
+            error_message = f"{error_message}, Error: {api_ex.inner_exception}, Line: {api_ex.line}"
+
+        _LOGGER.error(error_message)
+
+        abort(api_ex.status, api_ex.error)
+
+    except Exception as ex:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+
+        _LOGGER.error(f"Failed to train model {model}, error: {ex}, Line: {exc_tb.tb_lineno}")
+
+        abort(500, f"Failed to handle request for model {model}")
+
+
+@app.route(f"{MODEL_URL}/<model>/pre-train/images", methods=["POST"])
+def upload(model):
+    try:
+        media_file = request.files.get("image")
+
+        result = api.upload(model, media_file)
+
+        return result
+
+    except APIException as api_ex:
+        error_message = api_ex.error
+        if api_ex.inner_exception is not None:
+            error_message = f"{error_message}, Error: {api_ex.inner_exception}, Line: {api_ex.line}"
+
+        _LOGGER.error(error_message)
+
+        abort(api_ex.status, api_ex.error)
+
+    except Exception as ex:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+
+        _LOGGER.error(f"Failed to process model {model}, error: {ex}, Line: {exc_tb.tb_lineno}")
+
+        abort(500, f"Failed to handle request for model {model}")
+
+
 if __name__ == "__main__":
     _env_datasets_path = os.environ.get("DATASETS_PATH", DEFAULT_DATASETS_PATH)
     _env_tmp_path = os.environ.get("TEMP_PATH", DEFAULT_TEMP_PATH)
@@ -72,5 +149,14 @@ if __name__ == "__main__":
     api = API(_env_datasets_path, _env_tmp_path)
 
     api.initialize()
+
+    links = []
+    for rule in app.url_map.iter_rules():
+        methods = []
+        for method in rule.methods:
+            if method not in ["OPTIONS", "HEAD"]:
+                methods.append(method)
+
+        _LOGGER.info(f"{methods[0]} {rule.rule}")
 
     app.run(host="0.0.0.0", port=50000)
