@@ -53,3 +53,7 @@ MODEL_BASE_DIRECTORIES = [
     "pre-train/",
     "result/"
 ]
+
+TRAINING_STATUS_READY = "ready"
+TRAINING_STATUS_NOT_READY = "not-ready"
+TRAINING_STATUS_IN_PROGRESS = "in-progress"
