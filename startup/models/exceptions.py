@@ -1,4 +1,3 @@
-
 class APIException(Exception):
     status: int
     error: str

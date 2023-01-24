@@ -8,13 +8,14 @@ import torch
 from models.common import DetectMultiBackend
 from startup.helpers.consts import *
 from utils.dataloaders import LoadImages
-from utils.general import (Profile, check_img_size, non_max_suppression)
+from utils.general import Profile, check_img_size, non_max_suppression
 from utils.torch_utils import select_device
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class MediaProcessor:
+
     def __init__(self, media_path: str, weights_path: str, data_path: str):
         # Load model
         device = select_device('')

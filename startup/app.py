@@ -4,7 +4,7 @@ import logging
 import os
 import sys
 
-from flask import Flask, request, abort, url_for
+from flask import Flask, abort, request, url_for
 
 from startup.helpers.consts import *
 from startup.managers.api import API
@@ -14,7 +14,7 @@ app = Flask(__name__)
 
 DEBUG = str(os.environ.get('DEBUG', False)).lower() == str(True).lower()
 
-log_level = logging.DEBUG  if DEBUG else logging.INFO
+log_level = logging.DEBUG if DEBUG else logging.INFO
 
 root = logging.getLogger()
 root.setLevel(log_level)
@@ -95,9 +95,7 @@ def detect(model):
 @app.route(f"{MODEL_URL}/<model>/train", methods=["GET"])
 def get_train_status(model):
     try:
-        result = {
-            ATTR_STATUS: api.get_training_status(model)
-        }
+        result = {ATTR_STATUS: api.get_training_status(model)}
 
         return result
 

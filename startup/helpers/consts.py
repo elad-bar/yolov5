@@ -31,8 +31,7 @@ STATUS_MAPPING = {
     "True_True": "full",
     "True_False": "loading_only",
     "False_True": "loaded_only",
-    "False_False": "none",
-}
+    "False_False": "none",}
 
 ATTR_CONFIDENCE = "confidence"
 ATTR_TIMESTAMP = "timestamp"
@@ -45,14 +44,7 @@ ATTR_STATUS = "status"
 ATTR_CREATED = "created"
 
 MODEL_BASE_DIRECTORIES = [
-    "images/train/",
-    "images/val/",
-    "labels/train/",
-    "labels/val/",
-    "models/",
-    "pre-train/",
-    "result/"
-]
+    "images/train/", "images/val/", "labels/train/", "labels/val/", "models/", "pre-train/", "result/"]
 
 TRAINING_STATUS_READY = "ready"
 TRAINING_STATUS_NOT_READY = "not-ready"

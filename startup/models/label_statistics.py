@@ -4,7 +4,6 @@ from startup.helpers.consts import *
 from startup.models.label_details import LabelDetails
 from startup.models.label_statistics_result import LabelStatisticsResult
 
-
 _LOGGER = logging.getLogger(__name__)
 
 

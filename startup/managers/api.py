@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import uuid
 import logging
 import os
 import sys
-
-from pathlib import Path
-
+import uuid
 from datetime import datetime
+from pathlib import Path
 from threading import Thread
 from typing import Any
 
@@ -18,7 +16,7 @@ from startup.helpers.consts import *
 from startup.managers.media_processor import MediaProcessor
 from startup.models.exceptions import APIException
 from startup.models.label_statistics import LabelStatistics
-from utils.general import (cv2)
+from utils.general import cv2
 from utils.torch_utils import smart_inference_mode
 
 _LOGGER = logging.getLogger(__name__)
@@ -65,8 +63,7 @@ class API:
                         MODEL_WEIGHTS_KEY: model_weights_path,
                         MODEL_DATA_KEY: model_data_path,
                         MODEL_PRE_TRAIN_KEY: model_pre_train_path,
-                        ATTR_OK: model_weights_path is not None
-                    }
+                        ATTR_OK: model_weights_path is not None}
 
                     self._models[model_name][ATTR_STATUS] = self.get_training_status(model_name)
 
@@ -117,8 +114,7 @@ class API:
                 "val": os.path.join(model_path, "images", "val"),
                 "test": None,
                 "nc": labels,
-                "names": len(labels)
-            }
+                "names": len(labels)}
 
             data_yaml_path = os.path.join(model_path, f"{model_name}.yaml")
 
@@ -133,11 +129,7 @@ class API:
 
             request_duration = (stop_processing - start_processing) * MILLISECONDS
 
-            result = {
-                ATTR_OK: True,
-                ATTR_CREATED: objects_created,
-                ATTR_DURATION: request_duration
-            }
+            result = {ATTR_OK: True, ATTR_CREATED: objects_created, ATTR_DURATION: request_duration}
 
             self.initialize()
 
@@ -206,10 +198,7 @@ class API:
             training_status = self.get_training_status(model_name)
 
             if training_status == "in-progress":
-                return {
-                    "ok": False,
-                    "status": training_status
-                }
+                return {"ok": False, "status": training_status}
 
             self._set_training_status(model_name, TRAINING_STATUS_IN_PROGRESS)
 
@@ -218,10 +207,7 @@ class API:
             thread = Thread(target=self._train, args=(model_name,))
             thread.start()
 
-            return {
-                "ok": True,
-                "status": TRAINING_STATUS_IN_PROGRESS
-            }
+            return {"ok": True, "status": TRAINING_STATUS_IN_PROGRESS}
 
         except APIException as api_ex:
             self._set_training_status(model_name)
@@ -332,15 +318,11 @@ class API:
 
                 # TODO: Report to Prometheus
                 if media_type == MEDIA_VIDEO:
-                    _LOGGER.debug(
-                        f"Processed video frame of {(current_timestamp / 1000):.3f}s, "
-                        f"Duration: {processor.last_frame_processing_time:.3f}ms"
-                    )
+                    _LOGGER.debug(f"Processed video frame of {(current_timestamp / 1000):.3f}s, "
+                                  f"Duration: {processor.last_frame_processing_time:.3f}ms")
                 else:
-                    _LOGGER.debug(
-                        f"Processed image, "
-                        f"Duration: {processor.last_frame_processing_time:.3f}ms"
-                    )
+                    _LOGGER.debug(f"Processed image, "
+                                  f"Duration: {processor.last_frame_processing_time:.3f}ms")
 
             stop_processing = datetime.now().timestamp()
 
@@ -361,8 +343,7 @@ class API:
                 ATTR_MEDIA: media_details,
                 ATTR_LABELS: optimized_labels.to_dict(),
                 ATTR_STATUS: status,
-                ATTR_DURATION: request_duration
-            }
+                ATTR_DURATION: request_duration}
 
             _LOGGER.debug(result)
 
@@ -416,16 +397,10 @@ class API:
 
             request_duration = (stop_processing - start_processing) * MILLISECONDS
 
-            status = (
-                f"Extracted {currentframe - 1} image{'s' if currentframe > 2 else ''}, "
-                f"Path: {new_file_prefix}.*.jpg"
-            )
+            status = (f"Extracted {currentframe - 1} image{'s' if currentframe > 2 else ''}, "
+                      f"Path: {new_file_prefix}.*.jpg")
 
-            result = {
-                ATTR_OK: True,
-                ATTR_STATUS: status,
-                ATTR_DURATION: request_duration
-            }
+            result = {ATTR_OK: True, ATTR_STATUS: status, ATTR_DURATION: request_duration}
 
             _LOGGER.debug(result)
 
@@ -441,9 +416,7 @@ class API:
     def _get_media_details(video_capture) -> dict:
         file_type = MEDIA_IMAGE if video_capture is None else MEDIA_VIDEO
 
-        result = {
-            ATTR_TYPE: file_type
-        }
+        result = {ATTR_TYPE: file_type}
 
         if file_type == MEDIA_VIDEO:
             video_fps = video_capture.get(cv2.CAP_PROP_FPS)

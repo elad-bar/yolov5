@@ -28,9 +28,7 @@ class LabelStatisticsResult:
         for label in self.labels:
             data_item = self.labels[label]
 
-            result[label] = {
-                ATTR_CONFIDENCE: data_item.confidence
-            }
+            result[label] = {ATTR_CONFIDENCE: data_item.confidence}
 
             if self._media_type == MEDIA_VIDEO:
                 result[label][ATTR_TIMESTAMP] = data_item.timestamp

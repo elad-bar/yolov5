@@ -1,4 +1,3 @@
-
 class LabelDetails:
     confidence: float
     timestamp: float
