@@ -6,7 +6,7 @@ MODEL_URL = "/v1/model"
 DEFAULT_DATASETS_PATH = "/usr/src/datasets"
 DEFAULT_TEMP_PATH = "/tmp"
 
-MODEL_WEIGHTS_PATH_PATTERN = '**/last.pt'
+MODEL_WEIGHTS_PATH_PATTERN = 'models/weights/last.pt'
 MODEL_DATA_PATH_PATTERN = '*.yaml'
 
 MODEL_WEIGHTS_KEY = "weights"
@@ -38,14 +38,17 @@ ATTR_TIMESTAMP = "timestamp"
 ATTR_DURATION = "duration"
 ATTR_TYPE = "type"
 ATTR_OK = "ok"
+ATTR_PATH = "path"
 ATTR_MEDIA = "media"
 ATTR_LABELS = "labels"
 ATTR_STATUS = "status"
 ATTR_CREATED = "created"
+ATTR_NAME = "name"
 
 MODEL_BASE_DIRECTORIES = [
     "images/train/", "images/val/", "labels/train/", "labels/val/", "models/", "pre-train/", "result/"]
 
+TRAINING_STATUS_READY = "invalid"
 TRAINING_STATUS_READY = "ready"
 TRAINING_STATUS_NOT_READY = "not-ready"
-TRAINING_STATUS_IN_PROGRESS = "in-progress"
+TRAINING_STATUS_TRAINING = "training"

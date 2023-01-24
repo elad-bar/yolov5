@@ -57,7 +57,34 @@ def create_model(model):
 
 @app.route(f"{MODEL_URL}", methods=["GET"])
 def list_models():
-    return list(api.models.keys())
+    return api.get_models()
+
+
+@app.route(f"{MODEL_URL}/<model>", methods=["GET"])
+def get_model_details(model):
+    try:
+        result = api.get_model(model)
+
+        if result is None:
+            raise APIException(404, f"Model {model} not found")
+
+        return result.as_dict()
+
+    except APIException as api_ex:
+        error_message = api_ex.error
+        if api_ex.inner_exception is not None:
+            error_message = f"{error_message}, Error: {api_ex.inner_exception}, Line: {api_ex.line}"
+
+        _LOGGER.error(error_message)
+
+        abort(api_ex.status, api_ex.error)
+
+    except Exception as ex:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+
+        _LOGGER.error(f"Failed to get model {model} details, error: {ex}, Line: {exc_tb.tb_lineno}")
+
+        abort(500, f"Failed to get model {model} details")
 
 
 @app.route(f"{MODEL_URL}/<model>/detect", methods=["POST"])
@@ -88,30 +115,6 @@ def detect(model):
         exc_type, exc_obj, exc_tb = sys.exc_info()
 
         _LOGGER.error(f"Failed to process model {model}, error: {ex}, Line: {exc_tb.tb_lineno}")
-
-        abort(500, f"Failed to handle request for model {model}")
-
-
-@app.route(f"{MODEL_URL}/<model>/train", methods=["GET"])
-def get_train_status(model):
-    try:
-        result = {ATTR_STATUS: api.get_training_status(model)}
-
-        return result
-
-    except APIException as api_ex:
-        error_message = api_ex.error
-        if api_ex.inner_exception is not None:
-            error_message = f"{error_message}, Error: {api_ex.inner_exception}, Line: {api_ex.line}"
-
-        _LOGGER.error(error_message)
-
-        abort(api_ex.status, api_ex.error)
-
-    except Exception as ex:
-        exc_type, exc_obj, exc_tb = sys.exc_info()
-
-        _LOGGER.error(f"Failed to get training status for model {model}, error: {ex}, Line: {exc_tb.tb_lineno}")
 
         abort(500, f"Failed to handle request for model {model}")
 

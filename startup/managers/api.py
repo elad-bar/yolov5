@@ -7,15 +7,16 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from threading import Thread
-from typing import Any
 
 import yaml
 
 import train
 from startup.helpers.consts import *
+from startup.helpers.enums import ModelFile, ModelStatus
 from startup.managers.media_processor import MediaProcessor
 from startup.models.exceptions import APIException
 from startup.models.label_statistics import LabelStatistics
+from startup.models.model_details import ModelDetails
 from utils.general import cv2
 from utils.torch_utils import smart_inference_mode
 
@@ -23,24 +24,20 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class API:
-    _models: dict[str, dict[str, Any]]
+    _models: list[ModelDetails]
     _datasets_path: str
     _temp_path: str
 
     def __init__(self, datasets_path: str, temp_path: str):
-        self._models = {}
+        self._models = []
         self._datasets_path = datasets_path
         self._temp_path = temp_path
-
-    @property
-    def models(self):
-        return self._models
 
     def initialize(self):
         _LOGGER.debug("Initializing API")
         path = Path(self._datasets_path)
 
-        self._models = {}
+        self._models.clear()
 
         _LOGGER.debug(f"Datasets directory: {path}")
 
@@ -53,44 +50,30 @@ class API:
                     model_dir = str(item)
                     model_name: str = model_dir.replace(self._datasets_path, "")[1:]
 
-                    model_path = Path(model_dir)
+                    model = ModelDetails(model_name, self._datasets_path)
 
-                    model_weights_path = self._get_model_path(model_path, MODEL_WEIGHTS_PATH_PATTERN, True)
-                    model_data_path = self._get_model_path(model_path, f"{model_name}.yaml")
-                    model_pre_train_path = self._get_model_path(model_path, MODEL_PRE_TRAIN_KEY)
-
-                    self._models[model_name] = {
-                        MODEL_WEIGHTS_KEY: model_weights_path,
-                        MODEL_DATA_KEY: model_data_path,
-                        MODEL_PRE_TRAIN_KEY: model_pre_train_path,
-                        ATTR_OK: model_weights_path is not None}
-
-                    self._models[model_name][ATTR_STATUS] = self.get_training_status(model_name)
-
-                    _LOGGER.debug(f"Model details: {self._models[model_name]}")
+                    self._models.append(model)
 
             except Exception as ex:
                 exc_type, exc_obj, exc_tb = sys.exc_info()
 
                 _LOGGER.error(f"Failed to load model directory {str(item)}, Error: {ex}, Line: {exc_tb.tb_lineno}")
 
-        _LOGGER.info(f"Loaded models: {self._models}")
+        _LOGGER.info(f"Loaded models: {self.get_models()}")
 
     @staticmethod
-    def _get_model_path(model_path, pattern, optional: bool = False) -> Path | None:
-        file_list = list(model_path.glob(pattern))
-        file = None
+    def _get_model_path(model_path: str, pattern: str, optional: bool = False) -> str | None:
+        path = os.path.join(model_path, *pattern.split("/"))
 
-        if len(file_list) == 0:
-            if not optional:
-                raise Exception(f"'{pattern}' was not found'")
-        else:
-            file = file_list[0]
+        file_list = list(Path(model_path).glob(pattern))
 
-        return file
+        if not optional and len(file_list) == 0:
+            raise Exception(f"'{pattern}' was not found'")
+
+        return path
 
     def create(self, model_name, labels: list[str]):
-        model_info = self._models.get(model_name)
+        model_info = self.get_model(model_name)
 
         if model_info is not None:
             raise APIException(400, f"Model {model_name} already exists")
@@ -171,82 +154,20 @@ class API:
 
             raise APIException(500, error_message, ex, exc_tb.tb_lineno)
 
-    def get_training_status(self, model_name) -> str:
-        model_details = self._models.get(model_name)
-        is_model_ready = model_details.get(ATTR_OK, False)
-        default_status = TRAINING_STATUS_READY if is_model_ready else TRAINING_STATUS_NOT_READY
+    def get_models(self):
+        models = []
 
-        status = model_details.get(ATTR_STATUS, default_status)
+        for model in self._models:
+            models.append(model.as_dict())
 
-        return status
+        return models
 
-    def _set_training_status(self, model_name, status: str | None = None):
-        if status is None:
-            self._models[model_name][ATTR_STATUS] = None
-            status = self.get_training_status(model_name)
+    def get_model(self, model_name: str) -> ModelDetails | None:
+        results = [model for model in self._models if model.name == model_name]
 
-        self._models[model_name][ATTR_STATUS] = status
+        result = None if len(results) == 0 else results[0]
 
-    def train(self, model_name):
-        try:
-            model_info = self._models.get(model_name)
-            model_weights_path = model_info[MODEL_WEIGHTS_KEY]
-
-            if model_info is None:
-                raise APIException(404, f"Model {model_name} not found, Path: {model_weights_path}")
-
-            training_status = self.get_training_status(model_name)
-
-            if training_status == "in-progress":
-                return {"ok": False, "status": training_status}
-
-            self._set_training_status(model_name, TRAINING_STATUS_IN_PROGRESS)
-
-            _LOGGER.info(f"Training model {model_name}")
-
-            thread = Thread(target=self._train, args=(model_name,))
-            thread.start()
-
-            return {"ok": True, "status": TRAINING_STATUS_IN_PROGRESS}
-
-        except APIException as api_ex:
-            self._set_training_status(model_name)
-
-            raise api_ex
-
-        except Exception as ex:
-            self._set_training_status(model_name)
-
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-
-            error_message = f"Failed to train model {model_name}"
-
-            raise APIException(500, error_message, ex, exc_tb.tb_lineno)
-
-    def _train(self, model_name):
-        model_info = self._models.get(model_name)
-        model_weights_path = model_info[MODEL_WEIGHTS_KEY]
-        model_data_path = model_info[MODEL_DATA_KEY]
-
-        project_path = os.path.join(self._datasets_path, model_name)
-
-        try:
-            train.run(name="models",
-                      project=project_path,
-                      data=model_data_path,
-                      weights=model_weights_path,
-                      epochs=1200,
-                      patience=0,
-                      exist_ok=True)
-
-            _LOGGER.info(f"Training model {model_name} is done")
-
-        except Exception as ex:
-            exc_type, exc_obj, exc_tb = sys.exc_info()
-
-            _LOGGER.error(f"Failed to train model {model_name}, Error: {ex}, Line: {exc_tb.tb_lineno}")
-
-        self._set_training_status(model_name)
+        return result
 
     def detect(self, model_name, media_file, expected_keys: list[str], compare_by_confidence: bool):
         media_path = None
@@ -276,23 +197,75 @@ class API:
 
             raise APIException(500, error_message, ex, exc_tb.tb_lineno)
 
+    def train(self, model_name):
+        model_info = self.get_model(model_name)
+
+        try:
+            if model_info is None:
+                raise APIException(404, f"Model {model_name} not found")
+
+            if model_info.is_training:
+                return {"ok": False, "status": model_info.status.name.lower()}
+
+            model_info.set_status(ModelStatus.TRAINING)
+
+            _LOGGER.info(f"Training model {model_name}")
+
+            thread = Thread(target=self._train, args=(model_name,))
+            thread.start()
+
+            return {"ok": True, "status": model_info.status.name.lower()}
+
+        except APIException as api_ex:
+            if model_info is not None:
+                model_info.restore_status()
+
+            raise api_ex
+
+        except Exception as ex:
+            if model_info is not None:
+                model_info.restore_status()
+
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+
+            error_message = f"Failed to train model {model_name}"
+
+            raise APIException(500, error_message, ex, exc_tb.tb_lineno)
+
+    def _train(self, model_name):
+        model_info = self.get_model(model_name)
+
+        try:
+            train.run(name="models",
+                      project=model_info.get_file(ModelFile.PROJECT),
+                      data=model_info.get_file(ModelFile.DATA),
+                      epochs=1200,
+                      patience=0,
+                      exist_ok=True)
+
+            _LOGGER.info(f"Training model {model_name} is done")
+
+        except Exception as ex:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+
+            _LOGGER.error(f"Failed to train model {model_name}, Error: {ex}, Line: {exc_tb.tb_lineno}")
+
+        model_info.restore_status()
+
     @smart_inference_mode()
     def _process(self, model_name: str, media_path: str, expected_keys: list[str], compare_by_confidence: bool):
         try:
             start_processing = datetime.now().timestamp()
 
-            model_info = self._models.get(model_name)
-            model_weights_path = model_info[MODEL_WEIGHTS_KEY]
-            model_data_path = model_info[MODEL_DATA_KEY]
-            is_ready = model_info[ATTR_OK]
+            model_info = self.get_model(model_name)
 
             if model_info is None:
-                raise APIException(404, f"Model {model_name} not found, Path: {model_weights_path}")
+                raise APIException(404, f"Model {model_name} not found")
 
-            elif not is_ready:
-                raise APIException(400, f"Model {model_name} is not trained")
+            elif model_info.status != ModelStatus.READY:
+                raise APIException(400, f"Model {model_name} cannot process request, Status: {model_info.status}")
 
-            processor = MediaProcessor(media_path, str(model_weights_path), str(model_data_path))
+            processor = MediaProcessor(media_path, model_info)
 
             media_details = {}
 
@@ -359,14 +332,17 @@ class API:
         try:
             start_processing = datetime.now().timestamp()
 
-            model_info = self._models.get(model_name)
-            model_pre_train_path = model_info[MODEL_PRE_TRAIN_KEY]
+            model_info = self.get_model(model_name)
 
-            if not model_pre_train_path.is_dir():
-                raise APIException(404, f"Model {model_name} not found, Path: {model_pre_train_path}")
+            if model_info is None:
+                raise APIException(404, f"Model {model_name} not found")
+
+            elif not model_info.is_valid:
+                raise APIException(400, f"Model {model_name} cannot accept images")
 
             vid_cap = cv2.VideoCapture(media_path)
 
+            model_pre_train_path = model_info.get_file(ModelFile.PRE_TRAIN)
             new_file_prefix = os.path.join(model_pre_train_path, original_file_name)
 
             # frame
